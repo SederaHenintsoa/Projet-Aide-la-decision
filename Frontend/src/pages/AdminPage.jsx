@@ -67,7 +67,6 @@ const AdminPage = ({ user, onLogout }) => {
       alert("Erreur lors de la génération du PDF. Vérifiez que jspdf-autotable est installé.");
     }
   };
-  
 
   const handleViewDetails = async (patient) => {
     setSelectedPatient(patient);
