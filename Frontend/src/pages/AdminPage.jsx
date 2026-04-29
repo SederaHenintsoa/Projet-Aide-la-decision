@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, LogOut, Search, Eye, User, X, Calendar, Loader2, Calculator, Info } from 'lucide-react';
+import { Shield, LogOut, Search, Eye, User, X, Calendar, Loader2, Calculator, Info, FileText } from 'lucide-react';
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
+import toast, { Toaster } from 'react-hot-toast';
 
 const AdminPage = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('patients');
@@ -24,6 +27,48 @@ const AdminPage = ({ user, onLogout }) => {
     }
   };
 
+  // --- FONCTION DE GÉNÉRATION PDF CORRIGÉE ---
+  const generatePDF = (patient) => {
+    try {
+      const doc = new jsPDF();
+      
+      // En-tête
+      doc.setFontSize(20);
+      doc.setTextColor(79, 70, 229);
+      doc.text("RAPPORT DE DIAGNOSTIC RB-ADMIN", 20, 20);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Identifiant Patient : #D-${patient.id}`, 20, 30);
+      doc.text(`Nom : ${patient.name}`, 20, 35);
+      doc.text(`Date du rapport : ${new Date().toLocaleDateString('fr-FR')}`, 20, 40);
+
+      // Vérification de la présence de autoTable
+      if (typeof doc.autoTable === 'function') {
+        doc.autoTable({
+          startY: 50,
+          head: [['Indicateur', 'Valeur']],
+          body: [
+            ['Probabilité d\'Infection', `${patient.last_result}%`],
+            ['Interprétation', patient.last_result > 50 ? 'RISQUE ÉLEVÉ' : 'RISQUE FAIBLE'],
+            ['Méthodologie', 'Inférence Bayésienne (Théorème de Bayes)']
+          ],
+          theme: 'striped',
+          headStyles: { fillColor: [79, 70, 229] },
+          styles: { font: "helvetica", fontSize: 10 }
+        });
+      } else {
+        doc.text(`Résultat Probabilité : ${patient.last_result}%`, 20, 55);
+      }
+
+      doc.save(`Rapport_${patient.name.replace(/\s+/g, '_')}.pdf`);
+    } catch (error) {
+      console.error("Erreur PDF:", error);
+      alert("Erreur lors de la génération du PDF. Vérifiez que jspdf-autotable est installé.");
+    }
+  };
+  
+
   const handleViewDetails = async (patient) => {
     setSelectedPatient(patient);
     setLoadingHistory(true);
@@ -38,7 +83,6 @@ const AdminPage = ({ user, onLogout }) => {
     }
   };
 
-  // Synchronisation dynamique des paramètres selon le patient sélectionné
   const getDynamicSymptoms = () => {
     if (!selectedCalcPatient) return [];
     const isHighRisk = selectedCalcPatient.last_result > 50;
@@ -71,7 +115,6 @@ const AdminPage = ({ user, onLogout }) => {
     ];
   };
 
-  // Composant Lexique (Nommage des variables)
   const VariableLexicon = () => (
     <div className="mt-6 p-6 bg-indigo-50/50 border border-indigo-100 rounded-[24px] flex flex-wrap gap-8 justify-center shadow-inner">
       <div className="flex items-center gap-2">
@@ -132,9 +175,17 @@ const AdminPage = ({ user, onLogout }) => {
                             <span className="text-indigo-400 text-[9px] font-black uppercase tracking-[0.3em] border-r border-white/10 pr-6 italic">Théorème appliqué</span>
                             <h2 className="text-base font-black italic text-slate-100 tracking-tight">P(IC|S) = [ P(IC) × Π P(S|IC) ] / P(S)</h2>
                         </div>
-                        <div className="text-right">
-                            <span className="text-[11px] font-black italic text-indigo-400 mr-2">{selectedCalcPatient.name} :</span>
-                            <span className="text-xl font-black italic">{selectedCalcPatient.last_result}%</span>
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={() => generatePDF(selectedCalcPatient)}
+                                className="bg-white/10 hover:bg-white/20 text-indigo-300 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase flex items-center gap-2 transition-all border border-white/10"
+                            >
+                                <FileText size={14}/> Exporter PDF
+                            </button>
+                            <div className="text-right ml-2">
+                                <span className="text-[11px] font-black italic text-indigo-400 mr-2">{selectedCalcPatient.name} :</span>
+                                <span className="text-xl font-black italic">{selectedCalcPatient.last_result}%</span>
+                            </div>
                         </div>
                     </div>
 
@@ -192,24 +243,24 @@ const AdminPage = ({ user, onLogout }) => {
           <div className="space-y-4 animate-in fade-in">
             <div className="grid grid-cols-2 gap-6">
                 <div className="bg-[#0F172A] p-10 rounded-[32px] shadow-lg flex flex-col justify-center border border-white/5">
-                    <h2 className="text-white text-xs font-black uppercase tracking-widest italic mb-6">Modèle de Réseau Bayésien</h2>
+                    <h2 className="text-white text-xs font-black uppercase tracking-widest italic mb-6">Architecture Probabiliste</h2>
                     <div className="bg-white/5 border border-white/10 p-8 rounded-[24px] text-center backdrop-blur-md">
-                        <code className="text-lg font-black text-indigo-400 italic">P(IC|S) = [ P(S|IC) * P(IC) ] / P(S)</code>
+                        <code className="text-lg font-black text-indigo-400 italic">P(I|S) = [ P(S|I) * P(I) ] / P(S)</code>
                     </div>
-                    <p className="text-slate-400 text-[10px] font-medium leading-relaxed mt-8 italic text-center">Ce modèle croise les vraisemblances observées pour déduire la probabilité d'infection.</p>
+                    <p className="text-slate-400 text-[10px] font-medium leading-relaxed mt-8 italic text-center">L'inférence met à jour la probabilité d'infection en fonction de la rareté des symptômes.</p>
                 </div>
                 <div className="bg-white p-10 rounded-[32px] border border-slate-100 shadow-sm">
-                    <p className="text-[9px] font-black uppercase text-slate-300 tracking-widest mb-6 italic text-center">Valeurs de Référence P(S|IC)</p>
+                    <p className="text-[9px] font-black uppercase text-slate-300 tracking-widest mb-6 italic text-center">Matrice SPF 2021</p>
                     <table className="w-full text-left">
                         <thead>
                           <tr className="text-[8px] font-black text-slate-400 uppercase border-b border-slate-50">
                             <th className="py-3">Paramètre</th>
-                            <th className="py-3 text-right">P(S|IC+)</th>
-                            <th className="py-3 text-right">P(S|IC-)</th>
+                            <th className="py-3 text-right">Infecté</th>
+                            <th className="py-3 text-right">Sain</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 font-black italic">
-                          {[{p:'Anosmie', i:'0.65', s:'0.01'}, {p:'Fièvre', i:'0.85', s:'0.03'}, {p:'Toux', i:'0.70', s:'0.10'}].map((row, idx) => (
+                          {[{p:'Fièvre (Forte)', i:'0.85', s:'0.03'}, {p:'Anosmie', i:'0.65', s:'0.01'}, {p:'Toux (Sèche)', i:'0.70', s:'0.10'}].map((row, idx) => (
                             <tr key={idx}><td className="py-4 text-[10px] text-slate-600 uppercase">{row.p}</td><td className="py-4 text-right text-red-500 text-xs">{row.i}</td><td className="py-4 text-right text-emerald-500 text-xs">{row.s}</td></tr>
                           ))}
                         </tbody>
@@ -242,8 +293,15 @@ const AdminPage = ({ user, onLogout }) => {
                   <tr key={p.id} className="hover:bg-slate-50/50 transition-all">
                     <td className="px-8 py-5 font-black text-slate-600 uppercase text-[11px] tracking-tighter italic">{p.name}</td>
                     <td className={`px-8 py-5 font-black text-sm ${p.last_result > 50 ? 'text-red-500' : 'text-emerald-500'}`}>{p.last_result}%</td>
-                    <td className="px-8 py-5 text-right">
-                      <button onClick={() => handleViewDetails(p)} className="bg-slate-100 text-slate-900 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all ml-auto flex items-center gap-2"><Eye size={12} /> Détails</button>
+                    <td className="px-8 py-5 text-right flex items-center justify-end gap-3">
+                      <button 
+                        onClick={() => generatePDF(p)} 
+                        className="p-2 text-slate-300 hover:text-indigo-600 transition-all"
+                        title="Télécharger le rapport"
+                      >
+                        <FileText size={18}/>
+                      </button>
+                      <button onClick={() => handleViewDetails(p)} className="bg-slate-100 text-slate-900 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2"><Eye size={12} /> Détails</button>
                     </td>
                   </tr>
                 ))}
@@ -253,7 +311,7 @@ const AdminPage = ({ user, onLogout }) => {
         )}
       </main>
 
-      {/* MODAL HISTORIQUE (RESTE ÉQUILIBRÉ) */}
+      {/* MODAL HISTORIQUE */}
       {selectedPatient && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
           <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95">
